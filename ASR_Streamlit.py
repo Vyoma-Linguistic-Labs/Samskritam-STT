@@ -77,10 +77,10 @@ else:
             tmp_raw.write(audio_bytes.read())
             raw_path = tmp_raw.name
         # Playback raw
-        st.audio(raw_path, format="audio/wav")
+        # st.audio(raw_path, format="audio/wav")
         # Load raw and debug
         waveform, sr = torchaudio.load(raw_path)
-        st.write(f"🔍 Raw recording: sample_rate={sr}, waveform shape={waveform.shape}")
+        # st.write(f"🔍 Raw recording: sample_rate={sr}, waveform shape={waveform.shape}")
                 # Resample to model rate (22050 Hz)
         if sr != 22050:
             resampler = torchaudio.transforms.Resample(sr, 22050)
@@ -96,14 +96,14 @@ else:
             sf.write(tmp2.name, data_np, sr)
             tmp_path = tmp2.name
         # Playback resampled (stereo) audio
-        st.audio(tmp_path, format="audio/wav")
-        st.write(f"🔍 Resampled: sample_rate={sr}, channels={waveform.shape[0]}, waveform shape={waveform.shape}")
+        # st.audio(tmp_path, format="audio/wav")
+        # st.write(f"🔍 Resampled: sample_rate={sr}, channels={waveform.shape[0]}, waveform shape={waveform.shape}")
         # Debug preprocess on resampled
         spec = recognizer._preprocess_audio(tmp_path)
         if spec is None:
             st.error("Error: Preprocessing returned None for recording.")
-        else:
-            st.write(f"🔍 Spectrogram shape: {spec.shape}")
+        # else:
+        #    st.write(f"🔍 Spectrogram shape: {spec.shape}")
         # Transcription
         if st.button("Transcribe Recording"):
             with st.spinner("Transcribing recorded audio..."):
@@ -116,4 +116,4 @@ else:
 
 # Footer
 st.markdown("---")
-st.write("Powered by **SpeechRecognizer** from your inference model")
+# st.write("Powered by **SpeechRecognizer** from your inference model")
