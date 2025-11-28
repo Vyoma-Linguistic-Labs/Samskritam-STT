@@ -14,6 +14,9 @@ import tempfile
 import torchaudio
 import soundfile as sf
 
+# Set torchaudio backend to soundfile to avoid TorchCodec/FFmpeg dependency
+torchaudio.set_audio_backend("soundfile")
+
 # Load and cache the recognizer for faster performance
 @st.cache_resource
 def load_recognizer(model_path: str = "./model_200_fixed.pth") -> SpeechRecognizer:
