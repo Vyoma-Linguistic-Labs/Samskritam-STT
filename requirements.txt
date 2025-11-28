@@ -3,3 +3,4 @@ torch
 torchaudio
 soundfile
 numpy
+torchcodec
