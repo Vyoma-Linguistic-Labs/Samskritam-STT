@@ -16,6 +16,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 import torchaudio
+import soundfile as sf
 import numpy as np
 import argparse
 import sys
@@ -241,8 +242,16 @@ class SpeechRecognizer:
     def _preprocess_audio(self, audio_path):
         """Preprocess audio file for inference"""
         try:
-            # Load audio
-            waveform, sample_rate = torchaudio.load(audio_path)
+            # Load audio using soundfile to avoid TorchCodec/FFmpeg dependency
+            data, sample_rate = sf.read(audio_path, dtype='float32')
+            
+            # Convert to torch tensor and ensure correct shape [channels, samples]
+            if len(data.shape) == 1:
+                # Mono audio
+                waveform = torch.from_numpy(data).unsqueeze(0)
+            else:
+                # Stereo/multi-channel audio - transpose to [channels, samples]
+                waveform = torch.from_numpy(data.T)
             
             # Resample if necessary
             if sample_rate != 22050:
@@ -264,6 +273,8 @@ class SpeechRecognizer:
             
         except Exception as e:
             print(f"Error preprocessing audio: {e}")
+            import traceback
+            traceback.print_exc()
             return None
     
     def _greedy_decode(self, output, blank_label=53):
