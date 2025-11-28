@@ -2,5 +2,5 @@ streamlit
 soundfile
 numpy
 torchcodec
-torch==1.13.1
-torchaudio==0.13.1
+torch==2.3.1
+torchaudio==2.3.1
