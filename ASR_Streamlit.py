@@ -66,14 +66,14 @@ if mode == "Upload File":
                 # Stereo/multi-channel audio - transpose to [channels, samples]
                 waveform = torch.from_numpy(data.T)
 
-            # Convert to float64 before resampling (to fix the dtype mismatch)
-            waveform = waveform.to(dtype=torch.float64)
-
             # Resample if needed (if sr != 22050)
             if sr != 22050:
                 resampler = torchaudio.transforms.Resample(sr, 22050)
                 waveform = resampler(waveform)
                 sr = 22050
+            
+            # Convert to float64 after resampling if needed
+            waveform = waveform.to(dtype=torch.float64)
 
             st.write(f"🔍 Loaded upload: sample_rate={sr}, waveform shape={waveform.shape}")
             spec = recognizer._preprocess_audio(tmp_path)
@@ -107,14 +107,14 @@ else:
             # Stereo/multi-channel audio - transpose to [channels, samples]
             waveform = torch.from_numpy(data.T)
         
-        # Convert to float64 before resampling (to fix the dtype mismatch)
-        waveform = waveform.to(dtype=torch.float64)
-
         # Resample to model rate (22050 Hz)
         if sr != 22050:
             resampler = torchaudio.transforms.Resample(sr, 22050)
             waveform = resampler(waveform)
             sr = 22050
+        
+        # Convert to float64 after resampling if needed
+        waveform = waveform.to(dtype=torch.float64)
 
         # Ensure stereo channels for inference pipeline
         if waveform.shape[0] == 1:
