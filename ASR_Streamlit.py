@@ -1,5 +1,6 @@
 import streamlit as st
 import torch
+import numpy as np
 
 # Page config
 st.set_page_config(
@@ -55,8 +56,15 @@ if mode == "Upload File":
             tmp_path = tmp.name
         st.audio(tmp_path, format=f"audio/{suffix.replace('.', '')}")
         if st.button("Transcribe Upload"):
-            # Load the audio file using soundfile backend
-            waveform, sr = torchaudio.backend.soundfile_backend.load(tmp_path)
+            # Load the audio file using soundfile
+            data, sr = sf.read(tmp_path, dtype='float32')
+            # Convert to torch tensor and ensure correct shape [channels, samples]
+            if len(data.shape) == 1:
+                # Mono audio
+                waveform = torch.from_numpy(data).unsqueeze(0)
+            else:
+                # Stereo/multi-channel audio - transpose to [channels, samples]
+                waveform = torch.from_numpy(data.T)
 
             # Convert to float64 before resampling (to fix the dtype mismatch)
             waveform = waveform.to(dtype=torch.float64)
@@ -88,8 +96,16 @@ else:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_raw:
             tmp_raw.write(audio_bytes.read())
             raw_path = tmp_raw.name
-        # Load raw audio file using soundfile backend
-        waveform, sr = torchaudio.backend.soundfile_backend.load(raw_path)
+        
+        # Load raw audio file using soundfile
+        data, sr = sf.read(raw_path, dtype='float32')
+        # Convert to torch tensor and ensure correct shape [channels, samples]
+        if len(data.shape) == 1:
+            # Mono audio
+            waveform = torch.from_numpy(data).unsqueeze(0)
+        else:
+            # Stereo/multi-channel audio - transpose to [channels, samples]
+            waveform = torch.from_numpy(data.T)
         
         # Convert to float64 before resampling (to fix the dtype mismatch)
         waveform = waveform.to(dtype=torch.float64)
