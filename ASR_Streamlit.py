@@ -14,9 +14,6 @@ import tempfile
 import torchaudio
 import soundfile as sf
 
-# Set torchaudio backend to soundfile to avoid TorchCodec/FFmpeg dependency
-torchaudio.set_audio_backend("soundfile")
-
 # Load and cache the recognizer for faster performance
 @st.cache_resource
 def load_recognizer(model_path: str = "./model_200_fixed.pth") -> SpeechRecognizer:
@@ -58,8 +55,8 @@ if mode == "Upload File":
             tmp_path = tmp.name
         st.audio(tmp_path, format=f"audio/{suffix.replace('.', '')}")
         if st.button("Transcribe Upload"):
-            # Load the audio file
-            waveform, sr = torchaudio.load(tmp_path)
+            # Load the audio file using soundfile backend
+            waveform, sr = torchaudio.backend.soundfile_backend.load(tmp_path)
 
             # Convert to float64 before resampling (to fix the dtype mismatch)
             waveform = waveform.to(dtype=torch.float64)
@@ -91,8 +88,8 @@ else:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_raw:
             tmp_raw.write(audio_bytes.read())
             raw_path = tmp_raw.name
-        # Load raw audio file
-        waveform, sr = torchaudio.load(raw_path)
+        # Load raw audio file using soundfile backend
+        waveform, sr = torchaudio.backend.soundfile_backend.load(raw_path)
         
         # Convert to float64 before resampling (to fix the dtype mismatch)
         waveform = waveform.to(dtype=torch.float64)
