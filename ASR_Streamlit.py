@@ -55,8 +55,18 @@ if mode == "Upload File":
             tmp_path = tmp.name
         st.audio(tmp_path, format=f"audio/{suffix.replace('.', '')}")
         if st.button("Transcribe Upload"):
-            # Debug load
+            # Load the audio file
             waveform, sr = torchaudio.load(tmp_path)
+
+            # Convert to float64 before resampling (to fix the dtype mismatch)
+            waveform = waveform.to(dtype=torch.float64)
+
+            # Resample if needed (if sr != 22050)
+            if sr != 22050:
+                resampler = torchaudio.transforms.Resample(sr, 22050)
+                waveform = resampler(waveform)
+                sr = 22050
+
             st.write(f"🔍 Loaded upload: sample_rate={sr}, waveform shape={waveform.shape}")
             spec = recognizer._preprocess_audio(tmp_path)
             if spec is None:
@@ -78,36 +88,34 @@ else:
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp_raw:
             tmp_raw.write(audio_bytes.read())
             raw_path = tmp_raw.name
-        # Playback raw
-        # st.audio(raw_path, format="audio/wav")
-        # Load raw and debug
-        # waveform, sr = torchaudio.load(raw_path)
-        audio, sr = sf.read(raw_path)  # loads as numpy array
-        waveform = torch.tensor(audio).unsqueeze(0)  # convert to torch tensor
-        # st.write(f"🔍 Raw recording: sample_rate={sr}, waveform shape={waveform.shape}")
-                # Resample to model rate (22050 Hz)
+        # Load raw audio file
+        waveform, sr = torchaudio.load(raw_path)
+        
+        # Convert to float64 before resampling (to fix the dtype mismatch)
+        waveform = waveform.to(dtype=torch.float64)
+
+        # Resample to model rate (22050 Hz)
         if sr != 22050:
             resampler = torchaudio.transforms.Resample(sr, 22050)
             waveform = resampler(waveform)
             sr = 22050
+
         # Ensure stereo channels for inference pipeline
         if waveform.shape[0] == 1:
             waveform = waveform.repeat(2, 1)
+
         # Save wave data to file for preprocessing
         with tempfile.NamedTemporaryFile(delete=False, suffix=".wav") as tmp2:
             # soundfile expects shape [frames, channels]
             data_np = waveform.transpose(0, 1).cpu().numpy()
             sf.write(tmp2.name, data_np, sr)
             tmp_path = tmp2.name
-        # Playback resampled (stereo) audio
-        # st.audio(tmp_path, format="audio/wav")
-        # st.write(f"🔍 Resampled: sample_rate={sr}, channels={waveform.shape[0]}, waveform shape={waveform.shape}")
+
         # Debug preprocess on resampled
         spec = recognizer._preprocess_audio(tmp_path)
         if spec is None:
             st.error("Error: Preprocessing returned None for recording.")
-        # else:
-        #    st.write(f"🔍 Spectrogram shape: {spec.shape}")
+        
         # Transcription
         if st.button("Transcribe Recording"):
             with st.spinner("Transcribing recorded audio..."):
