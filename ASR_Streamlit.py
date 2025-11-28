@@ -1,4 +1,6 @@
 import streamlit as st
+import torch
+
 # Page config
 st.set_page_config(
     page_title="ASR Streamlit Demo",
@@ -79,7 +81,9 @@ else:
         # Playback raw
         # st.audio(raw_path, format="audio/wav")
         # Load raw and debug
-        waveform, sr = torchaudio.load(raw_path)
+        # waveform, sr = torchaudio.load(raw_path)
+        audio, sr = sf.read(raw_path)  # loads as numpy array
+        waveform = torch.tensor(audio).unsqueeze(0)  # convert to torch tensor
         # st.write(f"🔍 Raw recording: sample_rate={sr}, waveform shape={waveform.shape}")
                 # Resample to model rate (22050 Hz)
         if sr != 22050:
