@@ -19,14 +19,22 @@ class GoogleSheetsAnalytics:
     SCOPES = ['https://www.googleapis.com/auth/spreadsheets', 
               'https://www.googleapis.com/auth/drive']
     
-    def __init__(self, spreadsheet_name: str = "Samskritam-STT Analytics"):
+    def __init__(
+        self,
+        spreadsheet_name: str = "Samskritam-STT Analytics",
+        spreadsheet_id: Optional[str] = None,
+    ):
         """
         Initialize Google Sheets analytics client.
         
         Args:
             spreadsheet_name: Name of the Google Sheet to create/use
+            spreadsheet_id: Optional ID of an existing Google Sheet. Recommended
+                for Streamlit Cloud so the sheet is owned by your Google Drive
+                account instead of the service account.
         """
         self.spreadsheet_name = spreadsheet_name
+        self.spreadsheet_id = spreadsheet_id or self._get_optional_secret("GOOGLE_SHEETS_SPREADSHEET_ID")
         self.client = self._authenticate()
         self.spreadsheet = self._get_or_create_spreadsheet()
         self.worksheet = self._get_or_create_worksheet("events")
@@ -37,6 +45,14 @@ class GoogleSheetsAnalytics:
         """Generate unique session ID"""
         import time
         return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(str(time.time())) % 10000}"
+
+    @staticmethod
+    def _get_optional_secret(key: str) -> Optional[str]:
+        """Return an optional Streamlit secret without masking missing credentials errors."""
+        try:
+            return st.secrets.get(key)
+        except Exception:
+            return None
     
     def _authenticate(self) -> gspread.Client:
         """
@@ -64,15 +80,34 @@ class GoogleSheetsAnalytics:
     
     def _get_or_create_spreadsheet(self) -> gspread.Spreadsheet:
         """Get existing spreadsheet or create new one"""
+        if self.spreadsheet_id:
+            try:
+                return self.client.open_by_key(self.spreadsheet_id)
+            except gspread.SpreadsheetNotFound as exc:
+                raise ValueError(
+                    "Google Sheet not found. Check GOOGLE_SHEETS_SPREADSHEET_ID "
+                    "and share that sheet with the service account client_email."
+                ) from exc
+
         try:
             # Try to find existing spreadsheet
             spreadsheet = self.client.open(self.spreadsheet_name)
             return spreadsheet
         except gspread.SpreadsheetNotFound:
             # Create new spreadsheet
-            spreadsheet = self.client.create(self.spreadsheet_name)
-            # Share with service account email (optional: add more permissions here)
-            return spreadsheet
+            try:
+                spreadsheet = self.client.create(self.spreadsheet_name)
+                return spreadsheet
+            except Exception as exc:
+                if "storage quota" in str(exc).lower() or "storagequotaexceeded" in str(exc).lower():
+                    raise ValueError(
+                        "Google Drive rejected automatic sheet creation because "
+                        "the service account cannot create more Drive files. "
+                        "Create the Google Sheet in your own Drive, share it with "
+                        "the service account client_email, and set "
+                        "GOOGLE_SHEETS_SPREADSHEET_ID in Streamlit secrets."
+                    ) from exc
+                raise
     
     def _get_or_create_worksheet(self, title: str) -> gspread.Worksheet:
         """Get existing worksheet or create new one"""
