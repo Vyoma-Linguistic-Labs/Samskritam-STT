@@ -11,15 +11,35 @@ import soundfile as sf
 from inference import SpeechRecognizer
 import time
 
+# Try to import Google Sheets analytics, fall back to local file if not available
+try:
+    from google_sheets_analytics import GoogleSheetsAnalytics
+    USE_GOOGLE_SHEETS = True
+except ImportError:
+    USE_GOOGLE_SHEETS = False
+
 # ==================== ANALYTICS SETUP ====================
 
 class StreamlitAnalytics:
-    """Handles all analytics collection and logging"""
+    """Handles all analytics collection and logging (Google Sheets or local file)"""
     
-    def __init__(self, analytics_file: str = "analytics.jsonl"):
+    def __init__(self, use_google_sheets: bool = True, analytics_file: str = "analytics.jsonl"):
+        self.use_google_sheets = use_google_sheets and USE_GOOGLE_SHEETS
         self.analytics_file = analytics_file
         self.session_id = st.session_state.get("session_id", self._generate_session_id())
         st.session_state.session_id = self.session_id
+        
+        # Get user_id from session or environment
+        self.user_id = st.session_state.get("user_id", os.getenv("USER_ID", "anonymous"))
+        
+        # Initialize Google Sheets client if enabled
+        if self.use_google_sheets:
+            try:
+                if USE_GOOGLE_SHEETS:
+                    self.gs_analytics = GoogleSheetsAnalytics()
+            except Exception as e:
+                st.warning(f"Could not connect to Google Sheets: {str(e)}. Using local file instead.")
+                self.use_google_sheets = False
     
     @staticmethod
     def _generate_session_id() -> str:
@@ -27,15 +47,26 @@ class StreamlitAnalytics:
         return f"{datetime.now().strftime('%Y%m%d_%H%M%S')}_{hash(str(time.time())) % 10000}"
     
     def log_event(self, event_type: str, **kwargs) -> None:
-        """Log an analytics event"""
+        """Log an analytics event to Google Sheets or local file"""
+        if self.use_google_sheets:
+            try:
+                self.gs_analytics.log_event(event_type, user_id=self.user_id, **kwargs)
+            except Exception as e:
+                # Fallback to file if Google Sheets fails
+                print(f"Google Sheets logging failed: {str(e)}, falling back to file")
+                self._log_to_file(event_type, **kwargs)
+        else:
+            self._log_to_file(event_type, **kwargs)
+    
+    def _log_to_file(self, event_type: str, **kwargs) -> None:
+        """Log event to local JSONL file (fallback)"""
         event = {
             "timestamp": datetime.now().isoformat(),
             "session_id": self.session_id,
+            "user_id": self.user_id,
             "event_type": event_type,
             **kwargs
         }
-        
-        # Log to file
         with open(self.analytics_file, "a") as f:
             f.write(json.dumps(event) + "\n")
     
@@ -53,7 +84,7 @@ class StreamlitAnalytics:
         return st.session_state.session_stats
 
 # Initialize Analytics
-analytics = StreamlitAnalytics()
+analytics = StreamlitAnalytics(use_google_sheets=USE_GOOGLE_SHEETS)
 stats = analytics.get_session_stats()
 
 # Log session start
